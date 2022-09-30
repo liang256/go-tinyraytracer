@@ -51,10 +51,23 @@ func render(spheres []*sphere.Sphere) {
 			bgG := uint8(float64(j) / float64(width) * 255)
 			color := []uint8{bgR, bgG, 0} // background color
 			mindis := math.MaxFloat64
+			maxdepth, mindepth := 22.0, 10.0
 			for _, sphere := range spheres {
 				if inter, dis := sphere.IntersectRay(rayOrig, rayDir); inter {
 					if dis < mindis {
-						color = sphere.Color // closest sphere color
+						// dis <= 0 -> mask 1, dis >= maxdepth -> mask 0
+						depthmask := 1.0
+						if dis >= maxdepth {
+							depthmask = 0
+						} else if dis > mindepth && dis < maxdepth {
+							depthmask = dis*-1/maxdepth + 1
+						}
+						blend := []uint8{100, 50, 255} // blend color
+						color = []uint8{
+							uint8((1-depthmask)*float64(blend[0]) + depthmask*float64(sphere.Color[0])),
+							uint8((1-depthmask)*float64(blend[1]) + depthmask*float64(sphere.Color[1])),
+							uint8((1-depthmask)*float64(blend[2]) + depthmask*float64(sphere.Color[2])),
+						}
 						mindis = dis
 					}
 				}
