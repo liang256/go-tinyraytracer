@@ -9,11 +9,32 @@ import (
 )
 
 func main() {
-	width, height := 1024, 768
-	sphere := &sphere.Sphere{
+	spheres := []*sphere.Sphere{}
+	spheres = append(spheres, &sphere.Sphere{
+		Center: []float64{5, 1, -12},
+		Radius: 3,
+		Color:  []uint8{0, 255, 255},
+	})
+	spheres = append(spheres, &sphere.Sphere{
+		Center: []float64{-1.5, -2, -18},
+		Radius: 3,
+		Color:  []uint8{0, 255, 255},
+	})
+	spheres = append(spheres, &sphere.Sphere{
+		Center: []float64{1.5, -0.5, -22},
+		Radius: 3,
+		Color:  []uint8{0, 255, 255},
+	})
+	spheres = append(spheres, &sphere.Sphere{
 		Center: []float64{-5, 2, -16},
 		Radius: 3,
-	}
+		Color:  []uint8{0, 255, 255},
+	})
+	render(spheres)
+}
+
+func render(spheres []*sphere.Sphere) {
+	width, height := 1024, 768
 	rayOrig := []float64{0, 0, 0} // camera position
 	fov := math.Pi / 2            // field of view
 	startP, unit := GetCanvasStartPointAndUnit(float64(width), float64(height), fov)
@@ -33,8 +54,14 @@ func main() {
 			}
 			bgG := uint8(float64(j) / float64(width) * 255)
 			color := []uint8{bgR, bgG, 0} // background color
-			if sphere.IntersectRay(rayOrig, rayDir) {
-				color = []uint8{0, 255, 255} // sphere color
+			mindis := math.MaxFloat64
+			for _, sphere := range spheres {
+				if inter, dis := sphere.IntersectRay(rayOrig, rayDir); inter {
+					if dis < mindis {
+						color = sphere.Color // closest sphere color
+						mindis = dis
+					}
+				}
 			}
 			file.Write(color) // RGB
 		}

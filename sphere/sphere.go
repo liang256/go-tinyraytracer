@@ -7,19 +7,21 @@ import (
 type Sphere struct {
 	Center []float64
 	Radius float64
+	Color  []uint8 // RGB
 }
 
-func (s Sphere) IntersectRay(orig, dir []float64) bool {
+func (s Sphere) IntersectRay(orig, dir []float64) (bool, float64) {
 	// if the sphere not at the side of ray direction return false
 	origCenterVec := SubtractMatrix(s.Center, orig)
 	ray := AddMatrix(orig, dir)
 	dotProd := DotProduct(origCenterVec, ray)
 	if dotProd < 0 {
-		// fmt.Println("at oppsite side")
-		return false
+		return false, 0.0
 	}
 	// if the ray orig in the sphere, return false
-
+	if VecLen(origCenterVec) <= s.Radius {
+		return false, 0.0
+	}
 	// get the projected center on the ray, pc
 	// length of projection
 	projLen := dotProd / VecLen(ray)
@@ -28,10 +30,12 @@ func (s Sphere) IntersectRay(orig, dir []float64) bool {
 	// pc = orig + unitray * projectlength
 	pc := AddMatrix(orig, ScaleMatrix(unitRay, projLen))
 	// if |pc - c| <= radius, return true
-	if res := VecLen(SubtractMatrix(pc, s.Center)); res <= s.Radius {
-		return true
+	if res := VecLen(SubtractMatrix(pc, s.Center)); res > s.Radius {
+		return false, 0.0
 	}
-	return false
+	// caculate the distance between the closest point on this sphere and the camera
+	dis := projLen - math.Sqrt(math.Pow(s.Radius, 2)-math.Pow(VecLen(origCenterVec), 2)+math.Pow(projLen, 2))
+	return true, dis
 }
 
 func SubtractMatrix(a, b []float64) []float64 {

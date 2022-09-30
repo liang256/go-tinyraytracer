@@ -55,13 +55,18 @@ func TestScaleMatrix(t *testing.T) {
 func TestIntersectRay(t *testing.T) {
 	rayOrig, rayDir := []float64{0, 0, 0}, []float64{0, 0, -1}
 	// sphere 1
-	sphere := Sphere{[]float64{4, 3, -16}, 5}
-	if intersect := sphere.IntersectRay(rayOrig, rayDir); !intersect {
+	sphere := Sphere{[]float64{4, 3, -16}, 5, []uint8{0, 0, 0}}
+	if intersect, _ := sphere.IntersectRay(rayOrig, rayDir); !intersect {
 		t.Error()
 	}
 	// sphere 2
-	sphere = Sphere{[]float64{4, 10, -16}, 3}
-	if intersect := sphere.IntersectRay(rayOrig, rayDir); intersect {
+	sphere = Sphere{[]float64{4, 10, -16}, 3, []uint8{0, 0, 0}}
+	if intersect, _ := sphere.IntersectRay(rayOrig, rayDir); intersect {
+		t.Error()
+	}
+	// sphere 3
+	sphere = Sphere{[]float64{0, 0, -16}, 3, []uint8{0, 0, 0}}
+	if _, dis := sphere.IntersectRay(rayOrig, rayDir); dis != 13 {
 		t.Error()
 	}
 }
