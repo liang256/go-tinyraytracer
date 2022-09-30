@@ -35,14 +35,10 @@ func main() {
 
 func render(spheres []*sphere.Sphere) {
 	width, height := 1024, 768
-	rayOrig := []float64{0, 0, 0} // camera position
-	fov := math.Pi / 2            // field of view
+	framebuf := make([]uint8, width*height*3) // 3 is RBG
+	rayOrig := []float64{0, 0, 0}             // camera position
+	fov := math.Pi / 2                        // field of view
 	startP, unit := GetCanvasStartPointAndUnit(float64(width), float64(height), fov)
-	file, err := os.Create("out.ppm")
-	if err != nil {
-		log.Fatal(err)
-	}
-	file.WriteString(fmt.Sprintf("P6\n%d %d\n255\n", width, height))
 	for i := 0; i < height; i++ {
 		bgR := uint8(float64(i) / float64(height) * 255)
 		for j := 0; j < width; j++ {
@@ -63,9 +59,15 @@ func render(spheres []*sphere.Sphere) {
 					}
 				}
 			}
-			file.Write(color) // RGB
+			copy(framebuf[(i*width+j)*3:], color)
 		}
 	}
+	file, err := os.Create("out.ppm")
+	if err != nil {
+		log.Fatal(err)
+	}
+	file.WriteString(fmt.Sprintf("P6\n%d %d\n255\n", width, height))
+	file.Write(framebuf)
 	file.Close()
 }
 
