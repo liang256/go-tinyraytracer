@@ -2,14 +2,15 @@ package sphere
 
 import (
 	"math"
+	"raytracer/material"
 
 	"github.com/deeean/go-vector/vector3"
 )
 
 type Sphere struct {
-	Center *vector3.Vector3
-	Radius float64
-	Color  []uint8 // RGB
+	Center   *vector3.Vector3
+	Radius   float64
+	Material *material.Material
 }
 
 // Returns isIntersect, distant from point to camera, and normal of the point
