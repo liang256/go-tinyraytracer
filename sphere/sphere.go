@@ -22,6 +22,10 @@ func (s Sphere) IntersectRay(orig, dir *vector3.Vector3) (bool, float64) {
 	y := s.Center.Distance(p)
 	if y > s.Radius {
 		return false, 0.0
+	} else if orig.Distance(s.Center) < s.Radius {
+		return false, 0.0 // case: ray-orig in the sphere
+	} else if t < 0 {
+		return false, 0.0 // case: the sphere is not at the ray-dir side
 	}
 	// caculate the distance between the closest point on this sphere and the camera
 	x := math.Sqrt(s.Radius*s.Radius - y*y)
