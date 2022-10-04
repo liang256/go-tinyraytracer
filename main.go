@@ -20,7 +20,7 @@ func main() {
 		SpecExpo:  1.2,
 	}
 	red := &material.Material{
-		Color:     vector3.New(255, 0, 0),
+		Color:     vector3.New(230, 40, 40),
 		SpecColor: vector3.New(255, 255, 255),
 		Albedo:    vector3.New(0.4, 0.4, 0.2),
 		SpecExpo:  100,
@@ -39,37 +39,46 @@ func main() {
 	}
 	spheres := []*sphere.Sphere{}
 	spheres = append(spheres, &sphere.Sphere{
-		Center:   vector3.New(0, 0, -20),
-		Radius:   4,
+		Center:   vector3.New(5, 1, -12),
+		Radius:   3,
 		Material: red,
 	})
 	spheres = append(spheres, &sphere.Sphere{
-		Center:   vector3.New(5, 6, -20),
-		Radius:   2,
-		Material: blue,
+		Center:   vector3.New(-1.5, -2, -18),
+		Radius:   3,
+		Material: black,
 	})
 	spheres = append(spheres, &sphere.Sphere{
-		Center:   vector3.New(0, 6, -18),
-		Radius:   1.3,
+		Center:   vector3.New(1.5, -0.5, -22),
+		Radius:   3,
 		Material: white,
 	})
 	spheres = append(spheres, &sphere.Sphere{
-		Center:   vector3.New(-5, 6, -23),
-		Radius:   4,
-		Material: black,
+		Center:   vector3.New(-5, 2, -16),
+		Radius:   3,
+		Material: blue,
 	})
+
 	lights := []*light.Light{}
 	lights = append(lights, &light.Light{
-		Center:    vector3.New(40, 40, 10),
-		Intensity: 1,
+		Center:    vector3.New(-20, 0, -10),
+		Intensity: 0.4,
 	})
 	lights = append(lights, &light.Light{
-		Center:    vector3.New(0, 70, -10),
-		Intensity: 1,
+		Center:    vector3.New(40, 15, 20),
+		Intensity: 0.4,
 	})
 	lights = append(lights, &light.Light{
-		Center:    vector3.New(-30, 0, 20),
+		Center:    vector3.New(2, 30, 20),
+		Intensity: 0.1,
+	})
+	lights = append(lights, &light.Light{
+		Center:    vector3.New(-7, 30, 10),
 		Intensity: 0.5,
+	})
+	lights = append(lights, &light.Light{
+		Center:    vector3.New(0, 30, 30),
+		Intensity: 0.1,
 	})
 	render(spheres, lights)
 }
