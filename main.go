@@ -9,7 +9,6 @@ import (
 	"raytracer/material"
 	"raytracer/sphere"
 
-	"github.com/deeean/go-vector/vector2"
 	"github.com/deeean/go-vector/vector3"
 )
 
@@ -17,14 +16,26 @@ func main() {
 	blue := &material.Material{
 		Color:     vector3.New(0, 255, 255),
 		SpecColor: vector3.New(255, 255, 255),
-		Albedo:    vector2.New(0.9, 0.1),
+		Albedo:    vector3.New(0.8, 0.1, 0.0),
 		SpecExpo:  1.2,
 	}
 	red := &material.Material{
 		Color:     vector3.New(255, 0, 0),
-		SpecColor: vector3.New(255, 255, 0),
-		Albedo:    vector2.New(0.6, 0.1),
-		SpecExpo:  1,
+		SpecColor: vector3.New(255, 255, 255),
+		Albedo:    vector3.New(0.4, 0.4, 0.2),
+		SpecExpo:  100,
+	}
+	black := &material.Material{
+		Color:     vector3.New(0, 0, 0),
+		SpecColor: vector3.New(255, 255, 255),
+		Albedo:    vector3.New(0.2, 0.8, 0.9),
+		SpecExpo:  1024,
+	}
+	white := &material.Material{
+		Color:     vector3.New(250, 250, 250),
+		SpecColor: vector3.New(255, 255, 255),
+		Albedo:    vector3.New(0.6, 0.2, 0.0),
+		SpecExpo:  800,
 	}
 	spheres := []*sphere.Sphere{}
 	spheres = append(spheres, &sphere.Sphere{
@@ -38,24 +49,33 @@ func main() {
 		Material: blue,
 	})
 	spheres = append(spheres, &sphere.Sphere{
-		Center:   vector3.New(-10, -10, -30),
-		Radius:   6,
-		Material: blue,
+		Center:   vector3.New(0, 6, -18),
+		Radius:   1.3,
+		Material: white,
+	})
+	spheres = append(spheres, &sphere.Sphere{
+		Center:   vector3.New(-5, 6, -23),
+		Radius:   4,
+		Material: black,
 	})
 	lights := []*light.Light{}
 	lights = append(lights, &light.Light{
-		Center:    vector3.New(40, 40, -20),
+		Center:    vector3.New(40, 40, 10),
 		Intensity: 1,
 	})
 	lights = append(lights, &light.Light{
-		Center:    vector3.New(0, 40, -20),
-		Intensity: 0.2,
+		Center:    vector3.New(0, 70, -10),
+		Intensity: 1,
+	})
+	lights = append(lights, &light.Light{
+		Center:    vector3.New(-30, 0, 20),
+		Intensity: 0.5,
 	})
 	render(spheres, lights)
 }
 
 func render(spheres []*sphere.Sphere, lights []*light.Light) {
-	width, height := 512, 512
+	width, height := 1024, 768
 	framebuf := make([]uint8, width*height*3) // 3 is RBG
 	rayOrig := vector3.New(0, 0, 0)           // camera position
 	fov := math.Pi / 2                        // field of view
@@ -95,16 +115,14 @@ func castRay(rayOrig, rayDir *vector3.Vector3, spheres []*sphere.Sphere, lights 
 			mindis, hitSphereId = dis, i
 		}
 	}
-	if mindis == math.MaxFloat64 && depth == 0 {
-		return vector3.New(100, 100, 100) // bg color
-	} else if mindis == math.MaxFloat64 {
-		return vector3.New(0, 0, 0)
+	if mindis == math.MaxFloat64 {
+		return vector3.New(200, 200, 0) // bg color
 	}
 	hitPoint := rayOrig.Add(rayDir.MulScalar(mindis))
 	hitN := hitPoint.Sub(spheres[hitSphereId].Center).Normalize()
 
 	reflectColor := castRay(hitPoint, reflect(rayDir, hitN).Normalize(), spheres, lights, depth+1)
-	diffuseItensity := 0.0
+	diffuseItensity, specIntensity := 0.0, 0.0
 	for _, l := range lights {
 		lightDir := hitPoint.Sub(l.Center).Normalize()
 		v := hitN.Dot(lightDir)
@@ -118,11 +136,14 @@ func castRay(rayOrig, rayDir *vector3.Vector3, spheres []*sphere.Sphere, lights 
 				}
 			}
 			if hitId == hitSphereId {
-				diffuseItensity += -v
+				m := spheres[hitSphereId].Material
+				specIntensity += math.Pow(math.Max(0, reflect(lightDir, hitN).Dot(lightDir.MulScalar(-1))), m.SpecExpo) * l.Intensity
+				diffuseItensity += -v * l.Intensity
 			}
 		}
 	}
-	return spheres[hitSphereId].Material.Color.MulScalar(diffuseItensity).Add(reflectColor.MulScalar(0.6))
+	m := spheres[hitSphereId].Material
+	return m.Color.MulScalar(diffuseItensity * m.Albedo.X).Add(m.SpecColor.MulScalar(specIntensity * m.Albedo.Y)).Add(reflectColor.MulScalar(m.Albedo.Z))
 }
 
 // Start point is the up-left-most position of the canvas
