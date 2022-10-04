@@ -14,28 +14,32 @@ import (
 
 func main() {
 	blue := &material.Material{
-		Color:     vector3.New(0, 255, 255),
-		SpecColor: vector3.New(255, 255, 255),
-		Albedo:    vector3.New(0.8, 0.1, 0.0),
-		SpecExpo:  1.2,
+		Color:      vector3.New(0, 255, 255),
+		SpecColor:  vector3.New(255, 255, 255),
+		Albedo:     vector3.New(0.8, 0.1, 0.0),
+		SpecExpo:   1.2,
+		Refractive: 1,
 	}
 	red := &material.Material{
-		Color:     vector3.New(230, 40, 40),
-		SpecColor: vector3.New(255, 255, 255),
-		Albedo:    vector3.New(0.4, 0.4, 0.2),
-		SpecExpo:  100,
+		Color:      vector3.New(230, 40, 40),
+		SpecColor:  vector3.New(255, 255, 255),
+		Albedo:     vector3.New(0.5, 0.4, 0.1),
+		SpecExpo:   100,
+		Refractive: 1,
 	}
 	black := &material.Material{
-		Color:     vector3.New(0, 0, 0),
-		SpecColor: vector3.New(255, 255, 255),
-		Albedo:    vector3.New(0.2, 0.8, 0.9),
-		SpecExpo:  1024,
+		Color:      vector3.New(0, 0, 0),
+		SpecColor:  vector3.New(255, 255, 255),
+		Albedo:     vector3.New(0.2, 0.8, 0.9),
+		SpecExpo:   1024,
+		Refractive: 1.2,
 	}
 	white := &material.Material{
-		Color:     vector3.New(250, 250, 250),
-		SpecColor: vector3.New(255, 255, 255),
-		Albedo:    vector3.New(0.6, 0.2, 0.0),
-		SpecExpo:  800,
+		Color:      vector3.New(250, 250, 250),
+		SpecColor:  vector3.New(255, 255, 255),
+		Albedo:     vector3.New(0.6, 0.2, 0.0),
+		SpecExpo:   800,
+		Refractive: 1,
 	}
 	spheres := []*sphere.Sphere{}
 	spheres = append(spheres, &sphere.Sphere{
@@ -111,6 +115,23 @@ func reflect(in, normal *vector3.Vector3) *vector3.Vector3 {
 	return in.Sub(normal.MulScalar(normal.Dot(in)).MulScalar(2))
 }
 
+func refract(in, normal *vector3.Vector3, refractive float64) *vector3.Vector3 {
+	cosi := math.Min(1, math.Max(0, in.Dot(normal)))
+	etai := 1.0
+	etat := refractive
+	if cosi < 0 {
+		cosi *= -cosi
+		etat, etai = etai, etat
+		normal = normal.MulScalar(-1)
+	}
+	eta := etai / etat
+	k := 1 - eta*eta*(1-cosi*cosi)
+	if k < 0 {
+		return vector3.New(0, 0, 0)
+	}
+	return in.MulScalar(eta).Add(normal.MulScalar(cosi).SubScalar(math.Sqrt(k)))
+}
+
 // If the ray hit a geo, cast its color to the color-array-ptr
 func castRay(rayOrig, rayDir *vector3.Vector3, spheres []*sphere.Sphere, lights []*light.Light, depth int) *vector3.Vector3 {
 	if depth > 4 {
@@ -129,8 +150,15 @@ func castRay(rayOrig, rayDir *vector3.Vector3, spheres []*sphere.Sphere, lights 
 	}
 	hitPoint := rayOrig.Add(rayDir.MulScalar(mindis))
 	hitN := hitPoint.Sub(spheres[hitSphereId].Center).Normalize()
+	m := spheres[hitSphereId].Material
 
+	refractDir := refract(rayDir, hitN, m.Refractive).Normalize()
+	refractOrig := hitPoint.Add(hitN.MulScalar(1e-3))
+	if refractDir.Dot(hitN) < 0 {
+		refractOrig = hitPoint.Sub(hitN.MulScalar(1e-3))
+	}
 	reflectColor := castRay(hitPoint, reflect(rayDir, hitN).Normalize(), spheres, lights, depth+1)
+	refractColor := castRay(refractOrig, refractDir, spheres, lights, depth+1)
 	diffuseItensity, specIntensity := 0.0, 0.0
 	for _, l := range lights {
 		lightDir := hitPoint.Sub(l.Center).Normalize()
@@ -145,14 +173,12 @@ func castRay(rayOrig, rayDir *vector3.Vector3, spheres []*sphere.Sphere, lights 
 				}
 			}
 			if hitId == hitSphereId {
-				m := spheres[hitSphereId].Material
 				specIntensity += math.Pow(math.Max(0, reflect(lightDir, hitN).Dot(lightDir.MulScalar(-1))), m.SpecExpo) * l.Intensity
 				diffuseItensity += -v * l.Intensity
 			}
 		}
 	}
-	m := spheres[hitSphereId].Material
-	return m.Color.MulScalar(diffuseItensity * m.Albedo.X).Add(m.SpecColor.MulScalar(specIntensity * m.Albedo.Y)).Add(reflectColor.MulScalar(m.Albedo.Z))
+	return m.Color.MulScalar(diffuseItensity * m.Albedo.X).Add(m.SpecColor.MulScalar(specIntensity * m.Albedo.Y)).Add(reflectColor.MulScalar(m.Albedo.Z)).Add(refractColor.MulScalar(m.Albedo.Z))
 }
 
 // Start point is the up-left-most position of the canvas
