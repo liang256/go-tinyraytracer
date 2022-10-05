@@ -7,17 +7,24 @@ import (
 	"os"
 	"raytracer/light"
 	"raytracer/material"
+	"raytracer/plane"
 	"raytracer/sphere"
 
 	"github.com/deeean/go-vector/vector3"
 )
+
+type Renderable interface {
+	IntersectRay(orig, dir *vector3.Vector3) (bool, float64)
+	GetCenter() *vector3.Vector3
+	GetMaterial() *material.Material
+}
 
 func main() {
 	blue := &material.Material{
 		Color:      vector3.New(0, 255, 255),
 		SpecColor:  vector3.New(255, 255, 255),
 		Albedo:     vector3.New(0.8, 0.1, 0.0),
-		SpecExpo:   1.2,
+		SpecExpo:   5,
 		Refractive: 1,
 	}
 	red := &material.Material{
@@ -37,33 +44,43 @@ func main() {
 	white := &material.Material{
 		Color:      vector3.New(250, 250, 250),
 		SpecColor:  vector3.New(255, 255, 255),
-		Albedo:     vector3.New(0.6, 0.2, 0.0),
+		Albedo:     vector3.New(0.6, 0.2, 0.1),
 		SpecExpo:   800,
 		Refractive: 1,
 	}
-	spheres := []*sphere.Sphere{}
-	spheres = append(spheres, &sphere.Sphere{
+	geos := []Renderable{}
+	geos = append(geos, &sphere.Sphere{
 		Center:   vector3.New(5, 1, -12),
 		Radius:   3,
 		Material: red,
 	})
-	spheres = append(spheres, &sphere.Sphere{
+	geos = append(geos, &sphere.Sphere{
 		Center:   vector3.New(-1.5, -2, -18),
 		Radius:   3,
 		Material: black,
 	})
-	spheres = append(spheres, &sphere.Sphere{
+	geos = append(geos, &sphere.Sphere{
 		Center:   vector3.New(1.5, -0.5, -22),
 		Radius:   3,
 		Material: white,
 	})
-	spheres = append(spheres, &sphere.Sphere{
+	geos = append(geos, &sphere.Sphere{
 		Center:   vector3.New(-5, 2, -16),
 		Radius:   3,
 		Material: blue,
 	})
+	geos = append(geos, &plane.Disc{
+		Center:   vector3.New(0, -6, -16),
+		Normal:   vector3.New(0.1, 1, -0.2).Normalize(),
+		Radius:   5,
+		Material: blue,
+	})
 
 	lights := []*light.Light{}
+	lights = append(lights, &light.Light{
+		Center:    vector3.New(0, 100, -10),
+		Intensity: 1,
+	})
 	lights = append(lights, &light.Light{
 		Center:    vector3.New(-20, 0, -10),
 		Intensity: 0.4,
@@ -84,10 +101,14 @@ func main() {
 		Center:    vector3.New(0, 30, 30),
 		Intensity: 0.1,
 	})
-	render(spheres, lights)
+	lights = append(lights, &light.Light{
+		Center:    vector3.New(0, -30, 30),
+		Intensity: 0.1,
+	})
+	render(geos, lights)
 }
 
-func render(spheres []*sphere.Sphere, lights []*light.Light) {
+func render(geos []Renderable, lights []*light.Light) {
 	width, height := 1024, 768
 	framebuf := make([]uint8, width*height*3) // 3 is RBG
 	rayOrig := vector3.New(0, 0, 0)           // camera position
@@ -97,8 +118,9 @@ func render(spheres []*sphere.Sphere, lights []*light.Light) {
 		for j := 0; j < width; j++ {
 			// ray = each vertex on the canvas - camera poision
 			rayDir := startP.AddScalars(float64(j)*unit, -(float64(i) * unit), 0).Sub(rayOrig)
-			color := vec3ToUint8(castRay(rayOrig, rayDir, spheres, lights, 0))
-			copy(framebuf[(i*width+j)*3:], color)
+			color := castRay(rayOrig, rayDir, geos, lights, 0)
+			color = color.MulScalar(0.95).Add(vector3.New(200, 200, 0).MulScalar(0.05))
+			copy(framebuf[(i*width+j)*3:], vec3ToUint8(color))
 		}
 	}
 	file, err := os.Create("out.ppm")
@@ -133,32 +155,39 @@ func refract(in, normal *vector3.Vector3, refractive float64) *vector3.Vector3 {
 }
 
 // If the ray hit a geo, cast its color to the color-array-ptr
-func castRay(rayOrig, rayDir *vector3.Vector3, spheres []*sphere.Sphere, lights []*light.Light, depth int) *vector3.Vector3 {
+func castRay(rayOrig, rayDir *vector3.Vector3, geos []Renderable, lights []*light.Light, depth int) *vector3.Vector3 {
 	if depth > 4 {
 		return vector3.New(0, 0, 0)
 	}
 	rayDir = rayDir.Normalize()
 	mindis := math.MaxFloat64
-	hitSphereId := -1
-	for i, sphere := range spheres {
-		if inter, dis := sphere.IntersectRay(rayOrig, rayDir); inter && dis < mindis {
-			mindis, hitSphereId = dis, i
+	hitGeoId := -1
+	for i, geo := range geos {
+		if inter, dis := geo.IntersectRay(rayOrig, rayDir); inter && dis < mindis {
+			mindis, hitGeoId = dis, i
 		}
 	}
 	if mindis == math.MaxFloat64 {
 		return vector3.New(200, 200, 0) // bg color
 	}
-	hitPoint := rayOrig.Add(rayDir.MulScalar(mindis))
-	hitN := hitPoint.Sub(spheres[hitSphereId].Center).Normalize()
-	m := spheres[hitSphereId].Material
+	// return geos[hitGeoId].GetMaterial().Color
+	hitPoint := rayOrig.Add(rayDir.Normalize().MulScalar(mindis))
+	var hitN *vector3.Vector3
+	switch geos[hitGeoId].(type) {
+	case *sphere.Sphere:
+		hitN = hitPoint.Sub(geos[hitGeoId].GetCenter()).Normalize()
+	case *plane.Disc:
+		hitN = geos[hitGeoId].(*plane.Disc).Normal.Normalize()
+	}
+	m := geos[hitGeoId].GetMaterial()
 
 	refractDir := refract(rayDir, hitN, m.Refractive).Normalize()
 	refractOrig := hitPoint.Add(hitN.MulScalar(1e-3))
 	if refractDir.Dot(hitN) < 0 {
 		refractOrig = hitPoint.Sub(hitN.MulScalar(1e-3))
 	}
-	reflectColor := castRay(hitPoint, reflect(rayDir, hitN).Normalize(), spheres, lights, depth+1)
-	refractColor := castRay(refractOrig, refractDir, spheres, lights, depth+1)
+	reflectColor := castRay(hitPoint, reflect(rayDir, hitN).Normalize(), geos, lights, depth+1)
+	refractColor := castRay(refractOrig, refractDir, geos, lights, depth+1)
 	diffuseItensity, specIntensity := 0.0, 0.0
 	for _, l := range lights {
 		lightDir := hitPoint.Sub(l.Center).Normalize()
@@ -166,13 +195,13 @@ func castRay(rayOrig, rayDir *vector3.Vector3, spheres []*sphere.Sphere, lights 
 		if v < 0 {
 			// from hit point, check if there is an object between the point and the light
 			min, hitId := math.MaxFloat64, -1
-			for j := range spheres {
-				hit, dis := spheres[j].IntersectRay(l.Center, lightDir)
+			for j := range geos {
+				hit, dis := geos[j].IntersectRay(l.Center, lightDir)
 				if hit && dis < min {
 					min, hitId = dis, j
 				}
 			}
-			if hitId == hitSphereId {
+			if hitId == hitGeoId {
 				specIntensity += math.Pow(math.Max(0, reflect(lightDir, hitN).Dot(lightDir.MulScalar(-1))), m.SpecExpo) * l.Intensity
 				diffuseItensity += -v * l.Intensity
 			}

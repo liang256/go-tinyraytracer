@@ -31,3 +31,11 @@ func (s Sphere) IntersectRay(orig, dir *vector3.Vector3) (bool, float64) {
 	x := math.Sqrt(s.Radius*s.Radius - y*y)
 	return true, t - x
 }
+
+func (s *Sphere) GetMaterial() *material.Material {
+	return s.Material
+}
+
+func (s *Sphere) GetCenter() *vector3.Vector3 {
+	return s.Center
+}
